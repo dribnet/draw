@@ -2,3 +2,4 @@
 *.pkl
 .idea/
 .ipynb_checkpoints/
+/outputs
