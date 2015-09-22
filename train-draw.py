@@ -26,7 +26,7 @@ from fuel.transformers import Flatten
 
 from blocks.algorithms import GradientDescent, CompositeRule, StepClipping, RMSProp, Adam
 from blocks.bricks import Tanh, Identity
-from blocks.bricks.cost import BinaryCrossEntropy, AbsoluteError, CostMatrix, SquaredError
+from blocks.bricks.cost import BinaryCrossEntropy
 from blocks.bricks.recurrent import SimpleRecurrent, LSTM
 from blocks.initialization import Constant, IsotropicGaussian, Orthogonal 
 from blocks.filter import VariableFilter
@@ -127,6 +127,7 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
 
     print("\nRunning experiment %s" % longname)
     print("               dataset: %s" % dataset)
+    print("          subdirectory: %s" % subdir)
     print("              channels: %d" % channels)
     print("            image_size: %dx%d" % image_size)
     print("         learning rate: %g" % learning_rate)
@@ -166,56 +167,11 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
     recons_term = BinaryCrossEntropy().apply(x, x_recons)
     recons_term.name = "recons_term"
 
-
-    # # THESE MORE COMPLICATED COST FUNCTIONS ARE COMMENTED OUT FOR NOW
-    # before_len = x.shape[0]
-    # after_len = x_recons.shape[0]
-
-    # # full split
-    # before_split = T.reshape(x, (before_len, channels, img_height * img_width))
-    # after_split = T.reshape(x_recons, (after_len, channels, img_height * img_width))
-    # recons_term_single = BinaryCrossEntropy(name='recons_term_single').apply(before_split[0], after_split[0])
-
-    # if(channels == 1):
-    #     recons_term = 1.0 * recons_term_single
-    # else:
-    #     recons_term_color1 = BinaryCrossEntropy(name='recons_term_color1').apply(before_split[1], after_split[1])
-    #     recons_term_color2 = BinaryCrossEntropy(name='recons_term_color2').apply(before_split[2], after_split[2])
-    #     recons_term = 1.0 * recons_term_single + 0.1 * recons_term_color1 + 0.1 * recons_term_color2
-
-    # recons_term.name = "recons_term"
-
-    # # begin edge
-    # before_unfolded = T.reshape(x, (before_len, channels, img_height, img_width))
-    # after_unfolded = T.reshape(x_recons, (after_len, channels, img_height, img_width))
-
-    # edge_matrix = tensor.constant([[0, 0.25, 0], [0.25, -1, 0.25], [0, 0.25, 0]], dtype='float32')
-    # th_filter = T.reshape(edge_matrix, (1,1,3,3))
-
-    # before_edge_image = theano.tensor.nnet.conv.conv2d(before_unfolded[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
-    # after_edge_image = theano.tensor.nnet.conv.conv2d(after_unfolded[:,0:1,:,:], th_filter, border_mode='valid') + 0.5
-
-    # before_edge_flat = T.reshape(before_edge_image, (before_len, (img_height-2) * (img_width-2)))
-    # after_edge_flat = T.reshape(after_edge_image, (after_len, (img_height-2) * (img_width-2)))
-
-    # recons_term_edge = BinaryCrossEntropy(name='recons_term_edge').apply(before_edge_flat, after_edge_flat)
-    # # recons_term_edge = SquaredError(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    # # recons_term_edge = AbsoluteError(name='diff_crossentropy').apply(edge_image1, edge_image2)
-    # recons_term_edge.name = "recons_term_edge"
-    # # END COMMENTED OUT COST FUNCTIONS
-
     kl_terms_sum = kl_terms.sum(axis=0).mean()
     kl_terms_sum.name = "kl_terms_sum"
-
-    # cost = recons_term + 0.25 * recons_term_edge + kl_terms_sum
     cost = recons_term + kl_terms_sum
     cost.name = "nll_bound"
-
     cost_monitors = [cost, recons_term, kl_terms_sum]
-
-    # cost_monitors = [cost, recons_term, recons_term_single, kl_terms_sum, recons_term_edge]
-    # if (channels > 1):
-    #     cost_monitors.extend([recons_term_color1, recons_term_color2])
 
     #------------------------------------------------------------
     cg = ComputationGraph([cost])
@@ -301,7 +257,6 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
         with open(oldmodel, "rb") as f:
             oldmodel = pickle.load(f)
             main_loop.model.set_parameter_values(oldmodel.get_parameter_values())
-            # main_loop.model.set_parameter_values(oldmodel.get_param_values())
         del oldmodel
 
     main_loop.run()

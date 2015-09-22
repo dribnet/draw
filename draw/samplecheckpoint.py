@@ -28,7 +28,7 @@ class SampleCheckpoint(Checkpoint):
         else:
             self.set_dash_params(every=0)
 
-    def set_dash_params(self, every=10, rows=8, cols=12):
+    def set_dash_params(self, every=10, rows=10, cols=16):
         self.dash_every = every
         self.dash_rows = rows
         self.dash_cols = cols
@@ -37,7 +37,7 @@ class SampleCheckpoint(Checkpoint):
         """Sample the model and save images to disk
         """
         if self.samples_every != 0 and self.iteration % self.samples_every == 0:
-            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels, self.lab, 6, 8, False)
+            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels, self.lab, self.dash_rows, self.dash_cols)
             if os.path.exists(self.epoch_src):
                 epoch_dst = "{0}/epoch-{1:03d}.png".format(self.save_subdir, self.iteration)
                 shutil.copy2(self.epoch_src, epoch_dst)
