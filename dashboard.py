@@ -133,7 +133,6 @@ def build_reconstruct_pairs(data_stream, num, model, channels, size):
     draw = model.get_top_bricks()[0]
     x = tensor.matrix('features')
     reconstruct_function = theano.function([x], draw.reconstruct(x))    
-    # EXPERIMENT reconstruct_function = theano.function([x], draw.reconstruct_flat(x))    
     iterator = data_stream.get_epoch_iterator(as_dict=True)
     pairs = []
     target_shape = (channels, size, size)
