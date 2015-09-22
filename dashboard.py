@@ -190,9 +190,7 @@ def build_random_samples(model, num_rand, size, channels):
     return samples.reshape(target_shape)
 
 def get_image_diff(im1, im2):
-    diff = np.subtract(im1, im2)
-    ab = np.absolute(diff)
-    return np.sum(ab)
+    return np.linalg.norm(im1 - im2)
 
 def gen_match_pairs(data_stream, size, channels, targets):
     target_shape = (channels, size, size)
