@@ -11,11 +11,12 @@ from sample import generate_samples
 from dashboard import generate_dash
 
 class SampleCheckpoint(Checkpoint):
-    def __init__(self, image_size, channels, lab, save_subdir, train_stream, test_stream, **kwargs):
+    def __init__(self, image_size, channels, lab, flat, save_subdir, train_stream, test_stream, **kwargs):
         super(SampleCheckpoint, self).__init__(path=None, **kwargs)
         self.image_size = image_size
         self.channels = channels
         self.lab = lab
+        self.flat = flat
         self.save_subdir = save_subdir
         self.iteration = 0
         self.train_stream = train_stream
@@ -28,7 +29,7 @@ class SampleCheckpoint(Checkpoint):
         else:
             self.set_dash_params(every=0)
 
-    def set_dash_params(self, every=10, rows=10, cols=16):
+    def set_dash_params(self, every=10, rows=12, cols=12):
         self.dash_every = every
         self.dash_rows = rows
         self.dash_cols = cols
@@ -37,7 +38,7 @@ class SampleCheckpoint(Checkpoint):
         """Sample the model and save images to disk
         """
         if self.samples_every != 0 and self.iteration % self.samples_every == 0:
-            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels, self.lab, self.dash_rows, self.dash_cols, False)
+            generate_samples(self.main_loop.model, self.save_subdir, self.image_size, self.channels, self.lab, self.flat, self.dash_rows, self.dash_cols, True)
             if os.path.exists(self.epoch_src):
                 epoch_dst = "{0}/epoch-{1:03d}.png".format(self.save_subdir, self.iteration)
                 shutil.copy2(self.epoch_src, epoch_dst)

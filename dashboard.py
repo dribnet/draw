@@ -158,8 +158,13 @@ def build_reconstruct_pairs(data_stream, num, model, channels, size):
 def build_random_samples(model, num_rand, size, channels):
     # reset the random generator
     draw = model.get_top_bricks()[0]
-    del draw._theano_rng
-    del draw._theano_seed
+    try:
+        del draw._theano_rng
+        del draw._theano_seed
+    except AttributeError:
+        # Do nothing
+        pass
+
     draw.seed_rng = np.random.RandomState(config.default_seed)
 
     #------------------------------------------------------------

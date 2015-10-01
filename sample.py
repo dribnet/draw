@@ -27,11 +27,15 @@ def scale_norm(arr):
     scale = (arr.max() - arr.min())
     return arr / scale
 
-def img_grid(arr, rows, cols, lab, global_scale=False):
+def img_grid(arr, rows, cols, lab, with_space, global_scale=False):
     N, channels, height, width = arr.shape
 
-    total_height = rows * height + (rows - 1)
-    total_width  = cols * width + (cols - 1)
+    total_height = rows * height
+    total_width  = cols * width
+
+    if with_space:
+        total_height = total_height + (rows - 1)
+        total_width  = total_width + (cols - 1)
 
     if global_scale:
         arr = scale_norm(arr)
@@ -49,7 +53,10 @@ def img_grid(arr, rows, cols, lab, global_scale=False):
         # else:
         #     this = scale_norm(arr[i])
 
-        offset_y, offset_x = r*height+r, c*width+c
+        if with_space:
+            offset_y, offset_x = r*height+r, c*width+c
+        else:
+            offset_y, offset_x = r*height, c*width
         I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = this
     
     if(channels == 1):
@@ -64,7 +71,7 @@ def img_grid(arr, rows, cols, lab, global_scale=False):
 
     return Image.fromarray(out)
 
-def generate_samples(p, subdir, output_size, channels, lab, rows, cols, flat):
+def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, with_space):
     if isinstance(p, AbstractModel):
         model = p
     else:
@@ -73,8 +80,12 @@ def generate_samples(p, subdir, output_size, channels, lab, rows, cols, flat):
 
     draw = model.get_top_bricks()[0]
     # reset the random generator
-    del draw._theano_rng
-    del draw._theano_seed
+    try:
+        del draw._theano_rng
+        del draw._theano_seed
+    except AttributeError:
+        # Do nothing
+        pass
     draw.seed_rng = np.random.RandomState(config.default_seed)
 
     #------------------------------------------------------------
@@ -98,7 +109,6 @@ def generate_samples(p, subdir, output_size, channels, lab, rows, cols, flat):
                 ul.append(u1)
                 # ul.append([rowspace[r], colspace[c]])
         u = np.array(ul)
-        print(u)
         u_var = T.matrix("u_var")
         samples_at = draw.sample_at(n_samples, u_var)
         do_sample_at = theano.function([n_samples, u_var], outputs=samples_at, allow_input_downcast=True)
@@ -120,12 +130,12 @@ def generate_samples(p, subdir, output_size, channels, lab, rows, cols, flat):
     samples = samples.reshape( (n_iter, N, channels, output_size, output_size) )
 
     if(n_iter > 0):
-        img = img_grid(samples[n_iter-1,:,:,:], rows, cols, lab)
+        img = img_grid(samples[n_iter-1,:,:,:], rows, cols, lab, with_space)
         img.save("{0}/sample.png".format(subdir))
 
     if(n_iter > 1):
         for i in xrange(n_iter-1):
-            img = img_grid(samples[i,:,:,:], rows, cols, lab)
+            img = img_grid(samples[i,:,:,:], rows, cols, lab, with_space)
             img.save("{0}/time-{1:03d}.png".format(subdir, i))
 
         os.system("convert -delay 5 {0}/time-*.png -delay 300 {0}/sample.png {0}/sequence.gif".format(subdir))
@@ -144,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument("--rows", type=int,
                 default=8, help="grid rows")
     parser.add_argument('--flat', dest='flat', default=False, action='store_true')
+    parser.add_argument('--tight', dest='tight', default=False, action='store_true')
     parser.add_argument('--lab', dest='lab', default=False,
                 help="Lab Colorspace", action='store_true')
     args = parser.parse_args()
@@ -156,4 +167,4 @@ if __name__ == "__main__":
     if not os.path.exists(subdir):
         os.makedirs(subdir)
 
-    generate_samples(p, subdir, args.size, args.channels, args.lab, args.rows, args.cols, args.flat)
+    generate_samples(p, subdir, args.size, args.channels, args.lab, args.flat, args.rows, args.cols, not args.tight)

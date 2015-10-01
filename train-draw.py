@@ -54,7 +54,7 @@ sys.setrecursionlimit(100000)
 
 #----------------------------------------------------------------------------
 def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
-         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel, lab, live_plotting):
+         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel, lab, flat, live_plotting):
 
     image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset, channels, size)
 
@@ -247,7 +247,7 @@ def main(name, dataset, channels, size, epochs, batch_size, learning_rate,
                 prefix="test"),
             #Checkpoint(name, before_training=False, after_epoch=True, save_separately=['log', 'model']),
             PartsOnlyCheckpoint("{}/{}".format(subdir,name), before_training=True, after_epoch=True, save_separately=['log', 'model']),
-            SampleCheckpoint(image_size=image_size[0], channels=channels, lab=lab, save_subdir=subdir, \
+            SampleCheckpoint(image_size=image_size[0], channels=channels, lab=lab, flat=flat, save_subdir=subdir, \
                 before_training=True, after_epoch=True, train_stream=train_stream, test_stream=test_stream),
             ProgressBar(),
             Printing()] + plotting_extensions)
@@ -295,6 +295,7 @@ if __name__ == "__main__":
                 help="Use a model pkl file created by a previous run as a starting point for all parameters")
     parser.add_argument('--lab', dest='lab', default=False,
                 help="Lab Colorspace", action='store_true')
+    parser.add_argument('--flat', dest='flat', default=False, action='store_true')
     args = parser.parse_args()
 
     main(**vars(args))
