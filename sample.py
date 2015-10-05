@@ -71,7 +71,20 @@ def img_grid(arr, rows, cols, lab, with_space, global_scale=False):
 
     return Image.fromarray(out)
 
-def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, with_space):
+def pol2cart(phi):
+    x = np.cos(phi)
+    y = np.sin(phi)
+    return(x, y)
+
+from scipy.special import ndtri
+
+# sqrt2 = 1.41421356237
+sqrt2 = 1.0
+def lerpTo(val, low, high):
+    zeroToOne = np.clip((val + sqrt2) / (2 * sqrt2), 0, 1)
+    return low + (high - low) * zeroToOne
+
+def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, dims, with_space):
     if isinstance(p, AbstractModel):
         model = p
     else:
@@ -92,32 +105,26 @@ def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, wi
     logging.info("Compiling sample function...")
     n_samples = T.iscalar("n_samples")
     if flat:
+        offsets = []
+        for i in range(dims):
+            offsets.append(pol2cart(i * np.pi / dims))
+
         #------------------------------------------------------------
-        # this does 3 deviations (99.7)
-        from scipy.special import ndtri
-        range_high = 0.99865
+        # this does 3.3 deviations (99.9)
+        range_high = 0.999
         range_low = 1 - range_high
-        rowspace = np.linspace(range_low,range_high,rows)
-        colspace = np.linspace(range_low,range_high,cols)
-        rowspace_rare = np.linspace(-3,3,rows)
-        colspace_rare = np.linspace(-3,3,cols)
         ul = []
         for c in range(cols):
+            yf = (c - (cols / 2.0) + 0.5) / (cols / 2.0 + 0.5)
             for r in range(rows):
-                u1 = np.zeros(2)
-                r0 = rowspace_rare[r]
-                r1 = rowspace_rare[c]
-                f0 = ndtri(rowspace[r])
-                f1 = ndtri(colspace[c])
-                # u1[0] = (4.0 * f0 + r0) / 5.0
-                # u1[1] = (4.0 * f1 + r1) / 5.0
-                u1[0] = (f0 + r0) / 2.0
-                u1[1] = (f1 + r1) / 2.0
-                # u1[0] = r0
-                # u1[1] = r1
-                # u1 = np.random.uniform(-1, 1, size=4)
+                xf = (r - (rows / 2.0) + 0.5) / (rows / 2.0 + 0.5)
+                coords = map(lambda o: np.dot([xf, yf], o), offsets)
+                ranged = map(lambda n:lerpTo(n, range_low, range_high), coords)
+                flatter = map(lambda n:lerpTo(n, -3, 3), coords)
+                cdfed = map(ndtri, ranged)
+                # u1 = (np.array(flatter) + np.array(cdfed)) / 2.0
+                u1 = np.array(cdfed)
                 ul.append(u1)
-                # ul.append([rowspace[r], colspace[c]])
         u = np.array(ul)
         u_var = T.matrix("u_var")
         samples_at = draw.sample_at(n_samples, u_var)
@@ -164,6 +171,8 @@ if __name__ == "__main__":
     parser.add_argument("--rows", type=int,
                 default=8, help="grid rows")
     parser.add_argument('--flat', dest='flat', default=False, action='store_true')
+    parser.add_argument("--zdim", type=int,
+                default=2, help="zdim (if flat)")
     parser.add_argument('--tight', dest='tight', default=False, action='store_true')
     parser.add_argument('--lab', dest='lab', default=False,
                 help="Lab Colorspace", action='store_true')
@@ -177,4 +186,4 @@ if __name__ == "__main__":
     if not os.path.exists(subdir):
         os.makedirs(subdir)
 
-    generate_samples(p, subdir, args.size, args.channels, args.lab, args.flat, args.rows, args.cols, not args.tight)
+    generate_samples(p, subdir, args.size, args.channels, args.lab, args.flat, args.rows, args.cols, args.zdim, not args.tight)
