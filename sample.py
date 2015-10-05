@@ -99,12 +99,22 @@ def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, wi
         range_low = 1 - range_high
         rowspace = np.linspace(range_low,range_high,rows)
         colspace = np.linspace(range_low,range_high,cols)
+        rowspace_rare = np.linspace(-3,3,rows)
+        colspace_rare = np.linspace(-3,3,cols)
         ul = []
         for c in range(cols):
             for r in range(rows):
                 u1 = np.zeros(2)
-                u1[0] = ndtri(rowspace[r])
-                u1[1] = ndtri(colspace[c])
+                r0 = rowspace_rare[r]
+                r1 = rowspace_rare[c]
+                f0 = ndtri(rowspace[r])
+                f1 = ndtri(colspace[c])
+                # u1[0] = (4.0 * f0 + r0) / 5.0
+                # u1[1] = (4.0 * f1 + r1) / 5.0
+                u1[0] = (f0 + r0) / 2.0
+                u1[1] = (f1 + r1) / 2.0
+                # u1[0] = r0
+                # u1[1] = r1
                 # u1 = np.random.uniform(-1, 1, size=4)
                 ul.append(u1)
                 # ul.append([rowspace[r], colspace[c]])
