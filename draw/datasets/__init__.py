@@ -6,7 +6,7 @@ import os
 supported_datasets = ['bmnist', 'silhouettes']
 # ToDo: # 'mnist' and 'tfd' are not normalized (0<= x <=1.)
 
-def get_data(data_name, channels=None, size=None):
+def get_data(data_name, channels=None, size=None, width=None, height=None):
     print("==============> Fetching Data")
     if data_name == 'mnist':
         from fuel.datasets import MNIST
@@ -54,9 +54,12 @@ def get_data(data_name, channels=None, size=None):
     else:
         from fuel.datasets import H5PYDataset
         from fuel.transformers.defaults import uint8_pixels_to_floatX
-        if size is None or channels is None:
+        if width is None and height is None and size is not None:
+            width = size
+            height = size
+        if width is None or height is None or channels is None:
             raise Exception("Image size and channels must be specified for data source {}".format(data_name))
-        img_size = (size, size)
+        img_size = (width, height)
         dataset_fname = os.path.join(fuel.config.data_path, data_name+'.hdf5')
         data_train = H5PYDataset(dataset_fname, which_sets=['train'], sources=['features'])
         try:

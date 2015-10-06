@@ -84,7 +84,7 @@ def lerpTo(val, low, high):
     zeroToOne = np.clip((val + sqrt2) / (2 * sqrt2), 0, 1)
     return low + (high - low) * zeroToOne
 
-def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, dims, with_space):
+def generate_samples(p, subdir, width, height, channels, lab, flat, rows, cols, z_dim, with_space):
     if isinstance(p, AbstractModel):
         model = p
     else:
@@ -106,8 +106,8 @@ def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, di
     n_samples = T.iscalar("n_samples")
     if flat:
         offsets = []
-        for i in range(dims):
-            offsets.append(pol2cart(i * np.pi / dims))
+        for i in range(z_dim):
+            offsets.append(pol2cart(i * np.pi / z_dim))
 
         #------------------------------------------------------------
         # this does 3.3 deviations (99.9)
@@ -144,7 +144,7 @@ def generate_samples(p, subdir, output_size, channels, lab, flat, rows, cols, di
 
     n_iter, N, D = samples.shape
     # logging.info("SHAPE IS: {}".format(samples.shape))
-    samples = samples.reshape( (n_iter, N, channels, output_size, output_size) )
+    samples = samples.reshape( (n_iter, N, channels, height, width) )
 
     if(n_iter > 0):
         img = img_grid(samples[n_iter-1,:,:,:], rows, cols, lab, with_space)
@@ -166,13 +166,17 @@ if __name__ == "__main__":
                 default=1, help="number of channels")
     parser.add_argument("--size", type=int,
                 default=28, help="Output image size (width and height)")
+    parser.add_argument("--width", type=int,
+                default=None, help="image width (if custom dataset)")
+    parser.add_argument("--height", type=int,
+                default=None, help="image height (if custom dataset)")
     parser.add_argument("--cols", type=int,
                 default=12, help="grid cols")
     parser.add_argument("--rows", type=int,
                 default=8, help="grid rows")
     parser.add_argument('--flat', dest='flat', default=False, action='store_true')
-    parser.add_argument("--zdim", type=int,
-                default=2, help="zdim (if flat)")
+    parser.add_argument("--z_dim", type=int,
+                default=2, help="z_dim (if flat)")
     parser.add_argument('--tight', dest='tight', default=False, action='store_true')
     parser.add_argument('--lab', dest='lab', default=False,
                 help="Lab Colorspace", action='store_true')
@@ -186,4 +190,4 @@ if __name__ == "__main__":
     if not os.path.exists(subdir):
         os.makedirs(subdir)
 
-    generate_samples(p, subdir, args.size, args.channels, args.lab, args.flat, args.rows, args.cols, args.zdim, not args.tight)
+    generate_samples(p, subdir, args.width, args.height, args.channels, args.lab, args.flat, args.rows, args.cols, args.z_dim, not args.tight)
