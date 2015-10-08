@@ -51,7 +51,7 @@ FORMAT = '[%(asctime)s] %(name)-15s %(message)s'
 DATEFMT = "%H:%M:%S"
 logging.basicConfig(format=FORMAT, datefmt=DATEFMT, level=logging.INFO)
 
-def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, samples, left_samp, right_samp, lab):
+def render_grid(rows, cols, width, height, channels, top_pairs, bottom_pairs, samples, left_samp, right_samp, lab):
     total_height = rows * height + (rows - 1)
     total_width  = cols * width + (cols - 1)
 
@@ -74,7 +74,7 @@ def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, sa
         for c in range(cols):
             for r in range(2):
                 offset_y, offset_x = r * height + r, c * width + c
-                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = top_pairs[c][r]
+                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = top_pairs[c][r].reshape(channels,height,width)
 
     # test pairs at bottom
     if bottom_pairs is not None:
@@ -82,13 +82,13 @@ def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, sa
             for i in range(2):
                 r = rows - i - 1
                 offset_y, offset_x = r * height + r, c * width + c
-                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = bottom_pairs[c][i]
+                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = bottom_pairs[c][i].reshape(channels,height,width)
 
     # random samples in the center
     sample_rows = rows - 4
     sample_cols = cols - 6
     if samples is not None:
-        samprect = samples[-1].reshape( (sample_cols, sample_rows, channels, width, height) )
+        samprect = samples[-1].reshape( (sample_cols, sample_rows, channels, height, width) )
         for c in range(sample_cols):
             cur_c = c + 3
             for r in range(sample_rows):
@@ -103,7 +103,7 @@ def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, sa
             for r in range(sample_rows):
                 cur_r = r + 2
                 offset_y, offset_x = cur_r * height + cur_r, cur_c * width + cur_c
-                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = left_samp[r][c]
+                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = left_samp[r][c].reshape(channels,height,width)
 
     # nearest neighbors on the right
     if right_samp is not None:
@@ -112,7 +112,7 @@ def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, sa
             for r in range(sample_rows):
                 cur_r = r + 2
                 offset_y, offset_x = cur_r * height + cur_r, cur_c * width + cur_c
-                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = right_samp[r][c]
+                I[0:channels, offset_y:(offset_y+height), offset_x:(offset_x+width)] = right_samp[r][c].reshape(channels,height,width)
 
     # convert everything to image
     if(channels == 1):
@@ -128,13 +128,13 @@ def render_grid(rows, cols, height, width, channels, top_pairs, bottom_pairs, sa
     return Image.fromarray(out)
 
 # build up a set of reconstructed pairs (training or test)
-def build_reconstruct_pairs(data_stream, num, model, channels, size):
+def build_reconstruct_pairs(data_stream, num, model, channels, image_size):
     draw = model.get_top_bricks()[0]
     x = tensor.matrix('features')
     reconstruct_function = theano.function([x], draw.reconstruct(x))
     iterator = data_stream.get_epoch_iterator(as_dict=True)
     pairs = []
-    target_shape = (channels, size, size)
+    target_shape = (channels, image_size[0], image_size[1])
 
     # first build a list of num images in datastream
     datastream_images = []
@@ -155,7 +155,7 @@ def build_reconstruct_pairs(data_stream, num, model, channels, size):
     return pairs
 
 # random samples
-def build_random_samples(model, num_rand, size, channels):
+def build_random_samples(model, num_rand, image_size, channels):
     # reset the random generator
     draw = model.get_top_bricks()[0]
     try:
@@ -180,7 +180,7 @@ def build_random_samples(model, num_rand, size, channels):
     samples = do_sample(num_rand)
     current_shape = samples.shape
     niter = current_shape[0]
-    target_shape = (niter, num_rand, channels, size, size)
+    target_shape = (niter, num_rand, channels, image_size[0], image_size[1])
     return samples.reshape(target_shape)
 
 # image_diff - used to caluclate nearest training neighbor
@@ -188,8 +188,8 @@ def get_image_diff(im1, im2):
     return np.linalg.norm(im1 - im2)
 
 # find nearest 2 neighbors in data_stream for each target
-def gen_match_pairs(data_stream, size, channels, targets):
-    target_shape = (channels, size, size)
+def gen_match_pairs(data_stream, image_size, channels, targets):
+    target_shape = (channels, image_size[0], image_size[1])
     matches = []
 
     # first build a list of all images in datastream
@@ -222,15 +222,15 @@ def gen_match_pairs(data_stream, size, channels, targets):
     return matches
 
 # add reconstruction for nearest neighbor
-def attach_recon_to_neighbors(model, images_left, images_right, channels, size):
+def attach_recon_to_neighbors(model, images_left, images_right, channels, image_size):
     logging.info("Compiling reconstruction function...")
     draw = model.get_top_bricks()[0]
     x = tensor.matrix('features')
     x_recons, kl_terms = draw.reconstruct(x)
     reconstruct_function = theano.function([x], draw.reconstruct(x))
 
-    input_shape = (1, channels * size * size)
-    target_shape = (channels, size, size)
+    input_shape = (1, channels * image_size[0] * image_size[1])
+    target_shape = (channels, image_size[0], image_size[1])
 
     for n in images_left:
         next_im = n[1].reshape(input_shape)
@@ -243,30 +243,30 @@ def attach_recon_to_neighbors(model, images_left, images_right, channels, size):
         n.append(recon_im.reshape(target_shape))
 
 # build all neighbors (left and right side with reconstructions)
-def build_neighbors(model, data_stream, size, channels, images_left, images_right):
-    pairs_left = gen_match_pairs(data_stream, size, channels, images_left)
-    pairs_right = gen_match_pairs(data_stream, size, channels, images_right)
-    attach_recon_to_neighbors(model, pairs_left, pairs_right, channels, size)
+def build_neighbors(model, data_stream, image_size, channels, images_left, images_right):
+    pairs_left = gen_match_pairs(data_stream, image_size, channels, images_left)
+    pairs_right = gen_match_pairs(data_stream, image_size, channels, images_right)
+    attach_recon_to_neighbors(model, pairs_left, pairs_right, channels, image_size)
     return [pairs_left, pairs_right]
 
 # generate entire dash and save
-def generate_dash(model, subdir, size, channels, lab, rows, cols, train_stream, test_stream):
+def generate_dash(model, subdir, image_size, channels, lab, rows, cols, train_stream, test_stream):
     sample_rows = rows - 4
     sample_cols = cols - 6
     num_rand = sample_rows * sample_cols
 
     logging.info("Generating random samples")
-    samples = build_random_samples(model, num_rand, size, channels)
+    samples = build_random_samples(model, num_rand, image_size, channels)
     left_samp = samples[-1][:sample_rows]
     right_samp = samples[-1][-sample_rows:]
     logging.info("Generating neighbors")
-    left_pairs, right_pairs = build_neighbors(model, train_stream, size, channels, left_samp, right_samp)
+    left_pairs, right_pairs = build_neighbors(model, train_stream, image_size, channels, left_samp, right_samp)
     logging.info("Generating pairs (training)")
-    train_pairs = build_reconstruct_pairs(train_stream, cols, model, channels, size)
+    train_pairs = build_reconstruct_pairs(train_stream, cols, model, channels, image_size)
     logging.info("Generating pairs (test)")
-    test_pairs = build_reconstruct_pairs(test_stream, cols, model, channels, size)
+    test_pairs = build_reconstruct_pairs(test_stream, cols, model, channels, image_size)
     logging.info("Rendering grid")
-    imgrid = render_grid(rows, cols, size, size, channels, train_pairs, test_pairs, samples, left_pairs, right_pairs, lab)
+    imgrid = render_grid(rows, cols, image_size[0], image_size[1], channels, train_pairs, test_pairs, samples, left_pairs, right_pairs, lab)
     imgrid.save("{0}/dash.png".format(subdir))
 
 # load model and run based on args
@@ -287,13 +287,11 @@ def unpack_and_run(subdir, args):
 
     dataset = args.dataset
     logging.info("Loading dataset %s..." % dataset)
-    image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset, args.channels, args.size)
+    image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset, args.channels, args.size, args.width, args.height)
     train_stream = Flatten(DataStream.default_stream(data_train, iteration_scheme=SequentialScheme(data_train.num_examples, 1)))
     test_stream  = Flatten(DataStream.default_stream(data_test,  iteration_scheme=SequentialScheme(data_test.num_examples, 1)))
-    size = image_size[0]
 
-    generate_dash(model, subdir, size, channels, lab, rows, cols, train_stream, test_stream)
-    # generate_samples(p, rows, cols, train_pairs, subdir, size, channels)
+    generate_dash(model, subdir, image_size, channels, lab, rows, cols, train_stream, test_stream)
 
 # main - setup args, make output directory, and the run
 if __name__ == "__main__":
@@ -307,6 +305,10 @@ if __name__ == "__main__":
                 default=None, help="number of channels (if custom dataset)")
     parser.add_argument("--size", type=int,
                 default=None, help="image size (if custom dataset)")
+    parser.add_argument("--width", type=int,
+                default=None, help="image width (if custom dataset)")
+    parser.add_argument("--height", type=int,
+                default=None, help="image height (if custom dataset)")
     parser.add_argument("--cols", type=int,
                 default=12, help="grid cols")
     parser.add_argument("--rows", type=int,

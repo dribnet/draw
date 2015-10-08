@@ -29,8 +29,6 @@ class SampleCheckpoint(Checkpoint):
             self.set_dash_params(every=10)
         else:
             self.set_dash_params(every=0)
-        # fix image size
-        self.set_dash_params(every=0)
 
     def set_dash_params(self, every=10, rows=12, cols=12):
         self.dash_every = every
