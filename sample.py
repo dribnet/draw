@@ -84,7 +84,23 @@ def lerpTo(val, low, high):
     zeroToOne = np.clip((val + sqrt2) / (2 * sqrt2), 0, 1)
     return low + (high - low) * zeroToOne
 
-def generate_samples(p, subdir, width, height, channels, lab, flat, rows, cols, z_dim, with_space):
+#  http://stackoverflow.com/a/5347492
+# >>> interleave(np.array(range(6)))
+# array([0, 3, 1, 4, 2, 5])
+def interleave(offsets):
+    shape = offsets.shape
+    split_point = int(shape[0] / 2)
+    a = np.array(offsets[:split_point])
+    b = np.array(offsets[split_point:])
+    c = np.empty(shape, dtype=a.dtype)
+    c[0::2] = a
+    c[1::2] = b
+    return c
+
+def shuffle(offsets):
+    np.random.shuffle(offsets)
+
+def generate_samples(p, subdir, filename, width, height, channels, lab, flat, interleaves, shuffles, rows, cols, z_dim, with_space):
     if isinstance(p, AbstractModel):
         model = p
     else:
@@ -108,10 +124,19 @@ def generate_samples(p, subdir, width, height, channels, lab, flat, rows, cols, 
         offsets = []
         for i in range(z_dim):
             offsets.append(pol2cart(i * np.pi / z_dim))
+        offsets = np.array(offsets)
+
+        for i in range(interleaves):
+            offsets = interleave(offsets)
+
+        for i in range(shuffles):
+            shuffle(offsets)
 
         #------------------------------------------------------------
         # this does 3.3 deviations (99.9)
-        range_high = 0.999
+        # range_high = 0.999
+        # range_low = 1 - range_high
+        range_high = 0.95
         range_low = 1 - range_high
         ul = []
         for c in range(cols):
@@ -148,7 +173,7 @@ def generate_samples(p, subdir, width, height, channels, lab, flat, rows, cols, 
 
     if(n_iter > 0):
         img = img_grid(samples[n_iter-1,:,:,:], rows, cols, lab, with_space)
-        img.save("{0}/sample.png".format(subdir))
+        img.save("{0}/{1}.png".format(subdir, filename))
 
     if(n_iter > 1):
         for i in xrange(n_iter-1):
@@ -175,19 +200,24 @@ if __name__ == "__main__":
     parser.add_argument("--rows", type=int,
                 default=8, help="grid rows")
     parser.add_argument('--flat', dest='flat', default=False, action='store_true')
+    parser.add_argument("--interleaves", type=int,
+                default=0, help="#interleaves if flat")
+    parser.add_argument("--shuffles", type=int,
+                default=0, help="#shuffles if flat")
     parser.add_argument("--z_dim", type=int,
                 default=2, help="z_dim (if flat)")
     parser.add_argument('--tight', dest='tight', default=False, action='store_true')
     parser.add_argument('--lab', dest='lab', default=False,
                 help="Lab Colorspace", action='store_true')
+    parser.add_argument('--subdir', dest='subdir', default="sample")
+    parser.add_argument('--filename', dest='filename', default="filename")
     args = parser.parse_args()
 
     logging.info("Loading file %s..." % args.model_file)
     with open(args.model_file, "rb") as f:
         p = pickle.load(f)
 
-    subdir = "sample"
-    if not os.path.exists(subdir):
-        os.makedirs(subdir)
+    if not os.path.exists(args.subdir):
+        os.makedirs(args.subdir)
 
-    generate_samples(p, subdir, args.width, args.height, args.channels, args.lab, args.flat, args.rows, args.cols, args.z_dim, not args.tight)
+    generate_samples(p, args.subdir, args.filename, args.width, args.height, args.channels, args.lab, args.flat, args.interleaves, args.shuffles,args.rows, args.cols, args.z_dim, not args.tight)
