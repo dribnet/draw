@@ -159,12 +159,27 @@ def main(name, dataset, channels, size, width, height, epochs, batch_size, learn
                 writer=writer)
     draw.initialize()
 
+    from theano import function, printing
+
     #------------------------------------------------------------------------
-    x = tensor.matrix('features')
+    feat = tensor.matrix('features')
+    before_shape = feat.shape
+    before_len = before_shape[0]
+    hello_world_op = printing.Print('hello world')
+    printed_x = hello_world_op(before_shape)
+    before_split = T.reshape(feat, (before_len, 2, img_height * img_width))
+    source_shaped = before_split[:,0,:]
+    target_shaped = before_split[:,1,:]
+    x = T.reshape(source_shaped, (before_len, 1 * img_height * img_width))
+    x_target = T.reshape(target_shaped, (before_len, 1 * img_height * img_width))
+    # x = T.reshape(source_shaped, (before_len, img_height * img_width))
+    # x_target = T.reshape(target_shaped, (before_len, img_height * img_width))
+    # x = after_split
+    # x_target = feat
     
     x_recons, kl_terms = draw.reconstruct(x)
 
-    recons_term = BinaryCrossEntropy().apply(x, x_recons)
+    recons_term = BinaryCrossEntropy().apply(x_target, x_recons)
     recons_term.name = "recons_term"
 
     kl_terms_sum = kl_terms.sum(axis=0).mean()
