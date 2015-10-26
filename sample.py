@@ -180,7 +180,7 @@ def generate_samples(p, subdir, filename, width, height, channels, lab, flat, in
             img = img_grid(samples[i,:,:,:], rows, cols, lab, with_space)
             img.save("{0}/time-{1:03d}.png".format(subdir, i))
 
-        os.system("convert -delay 5 {0}/time-*.png -delay 300 {0}/sample.png {0}/sequence.gif".format(subdir))
+        os.system("convert -delay 5 {0}/time-*.png -delay 300 {0}/{1}.png {0}/sequence.gif".format(subdir, filename))
 
 if __name__ == "__main__":
     from argparse import ArgumentParser
