@@ -142,9 +142,12 @@ def build_it(data_stream, rows, cols, model, channels, image_size):
     input_shape = tuple([1] + list(datastream_images[0][0].shape))
 
     source_ims = []
-    source_ims.append(datastream_images[16][1].reshape(input_shape))
-    source_ims.append(datastream_images[2][1].reshape(input_shape))
-    source_ims.append(datastream_images[8][1].reshape(input_shape))
+    # source_ims.append(datastream_images[16][1].reshape(input_shape))
+    # source_ims.append(datastream_images[2][1].reshape(input_shape))
+    # source_ims.append(datastream_images[8][1].reshape(input_shape))
+    source_ims.append(datastream_images[1][1].reshape(input_shape))
+    source_ims.append(datastream_images[1][1].reshape(input_shape))
+    source_ims.append(datastream_images[1][1].reshape(input_shape))
     source_ims.append(datastream_images[1][1].reshape(input_shape))
     for c in range(cols):
         for r in range(rows):
@@ -159,11 +162,13 @@ def build_it(data_stream, rows, cols, model, channels, image_size):
             else:
                 source_im = source_ims[3]
 
-            if (c == 0 or c == cols-1) and (r == 0 or r == rows-1):
+            if False and (c == 0 or c == cols-1) and (r == 0 or r == rows-1):
                 # print("case c=0,r=0")
                 samples.append([source_im.reshape(target_shape)])
             else:
-                if c == 0 or c == cols-1:
+                if (c == 0 or c == cols-1) and (r == 0 or r == rows-1):
+                    encoded_im = encode(source_im.reshape(image_size[0], image_size[1]), -1, -1)
+                elif c == 0 or c == cols-1:
                     # print("case c=0: ", normed_size)
                     encoded_im = encode(source_im.reshape(image_size[0], image_size[1]), -1, normed_size)
                 elif r == 0 or r == rows-1:
