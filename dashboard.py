@@ -44,7 +44,7 @@ from draw.labcolor import scaled_lab2rgb
 
 from PIL import Image
 from blocks.main_loop import MainLoop
-from blocks.model import AbstractModel
+from blocks.model import Model
 from blocks.config import config
 
 FORMAT = '[%(asctime)s] %(name)-15s %(message)s'
@@ -287,7 +287,7 @@ def unpack_and_run(subdir, args):
     with open(args.model_file, "rb") as f:
         p = pickle.load(f)
 
-    if isinstance(p, AbstractModel):
+    if isinstance(p, Model):
         model = p
     else:
         print("Don't know how to handle unpickled %s" % type(p))

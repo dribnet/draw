@@ -12,7 +12,7 @@ import os
 
 from PIL import Image
 from blocks.main_loop import MainLoop
-from blocks.model import AbstractModel
+from blocks.model import Model
 from blocks.config import config
 
 from draw.labcolor import scaled_lab2rgb
@@ -101,7 +101,7 @@ def shuffle(offsets):
     np.random.shuffle(offsets)
 
 def generate_samples(p, subdir, filename, width, height, channels, lab, flat, interleaves, shuffles, rows, cols, z_dim, with_space):
-    if isinstance(p, AbstractModel):
+    if isinstance(p, Model):
         model = p
     else:
         print("Don't know how to handle unpickled %s" % type(p))
