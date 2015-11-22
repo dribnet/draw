@@ -71,7 +71,6 @@ def img_grid(arr, rows, cols, lab, with_space, global_scale=False):
 
     return Image.fromarray(out)
 
-<<<<<<< HEAD
 def pol2cart(phi):
     x = np.cos(phi)
     y = np.sin(phi)

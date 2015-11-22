@@ -27,7 +27,7 @@ Draw currently works with the "cutting-edge development version". But since the 
 you might consider installing this known to be supported version:
 
 ```
-pip install --upgrade git+git://github.com/mila-udem/blocks.git@7ff0f6b \
+pip install --upgrade git+git://github.com/mila-udem/blocks.git@v0.1.1 \
   -r https://raw.githubusercontent.com/mila-udem/blocks/master/requirements.txt
 ```
 
