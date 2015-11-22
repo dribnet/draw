@@ -23,12 +23,23 @@ This will install all the other dependencies for you (Theano, Fuel, etc.).
  * [Fuel](https://github.com/bartvm/fuel)
  * [picklable_itertools](https://github.com/dwf/picklable_itertools)
 
-Draw currently works with the "cutting-edge development version". But since the API is subject to change,
-you might consider installing this known to be supported version:
+Draw works with the current released blocks/fuel version v0.1.1. Since the API is subject to change,
+it is suggested to install this version specifically. For example
 
+blocks with pip dependencies as upgrade
 ```
 pip install --upgrade git+git://github.com/mila-udem/blocks.git@v0.1.1 \
-  -r https://raw.githubusercontent.com/mila-udem/blocks/master/requirements.txt
+  -r https://raw.githubusercontent.com/mila-udem/blocks/v0.1.1/requirements.txt
+```
+
+blocks fresh without pip dependencies
+```
+pip install git+git://github.com/mila-udem/blocks.git@v0.1.1
+```
+
+fuel as upgrade without dependencies
+```
+pip install --no-deps --upgrade git+git://github.com/mila-udem/fuel.git@v0.1.1
 ```
 
 You also need to install

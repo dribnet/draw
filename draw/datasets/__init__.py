@@ -2,6 +2,7 @@ from __future__ import division
 
 import fuel
 import os
+import sys
 
 supported_datasets = ['bmnist', 'silhouettes']
 # ToDo: # 'mnist' and 'tfd' are not normalized (0<= x <=1.)
@@ -60,7 +61,19 @@ def get_data(data_name, channels=None, size=None, width=None, height=None):
         if width is None or height is None or channels is None:
             raise Exception("Image size and channels must be specified for data source {}".format(data_name))
         img_size = (width, height)
-        dataset_fname = os.path.join(fuel.config.data_path, data_name+'.hdf5')
+
+        file_found = False
+        cur_path_index = 0
+        while not file_found and cur_path_index < len(fuel.config.data_path):
+            data_path = fuel.config.data_path[cur_path_index]
+            dataset_fname = os.path.join(data_path, data_name+'.hdf5')
+            if os.path.isfile(dataset_fname):
+                file_found = True
+            cur_path_index = cur_path_index + 1
+        if not file_found:
+            print "data set {} not found, exiting".format(data_name)
+            sys.exit(1)
+
         data_train = H5PYDataset(dataset_fname, which_sets=['train'], sources=['features'])
         try:
             data_valid = H5PYDataset(dataset_fname, which_sets=['valid'], sources=['features'])
