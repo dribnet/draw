@@ -389,3 +389,23 @@ class DrawModel(BaseRecurrent, Initializable, Random):
         c, _, _, = self.decode(u)
         #c, _, _, center_y, center_x, delta = self.decode(u)
         return T.nnet.sigmoid(c), u
+
+    @application(inputs=['n_samples', 'u'], outputs=['samples', 'newu'])
+    def sample_at_new(self, n_samples, u):
+        """Sample from model.
+
+        Returns
+        -------
+
+        samples : tensor3 (n_samples, n_iter, x_dim)
+        """
+
+        # u = self.theano_rng.normal(
+        #             size=(self.n_iter, n_samples, u_dim),
+        #             avg=0., std=1.)
+        u_dim = self.sampler.mean_transform.get_dim('output')
+        us = u.reshape((self.n_iter, n_samples, u_dim))
+
+        c, _, _, = self.decode(us)
+        #c, _, _, center_y, center_x, delta = self.decode(u)
+        return T.nnet.sigmoid(c)

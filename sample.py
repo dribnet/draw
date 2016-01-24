@@ -16,6 +16,7 @@ from blocks.model import Model
 from blocks.config import config
 
 from draw.labcolor import scaled_lab2rgb
+import modelutil
 
 FORMAT = '[%(asctime)s] %(name)-15s %(message)s'
 DATEFMT = "%H:%M:%S"
@@ -71,101 +72,19 @@ def img_grid(arr, rows, cols, lab, with_space, global_scale=False):
 
     return Image.fromarray(out)
 
-def pol2cart(phi):
-    x = np.cos(phi)
-    y = np.sin(phi)
-    return(x, y)
 
-from scipy.special import ndtri
-
-# sqrt2 = 1.41421356237
-sqrt2 = 1.0
-def lerpTo(val, low, high):
-    zeroToOne = np.clip((val + sqrt2) / (2 * sqrt2), 0, 1)
-    return low + (high - low) * zeroToOne
-
-#  http://stackoverflow.com/a/5347492
-# >>> interleave(np.array(range(6)))
-# array([0, 3, 1, 4, 2, 5])
-def interleave(offsets):
-    shape = offsets.shape
-    split_point = int(shape[0] / 2)
-    a = np.array(offsets[:split_point])
-    b = np.array(offsets[split_point:])
-    c = np.empty(shape, dtype=a.dtype)
-    c[0::2] = a
-    c[1::2] = b
-    return c
-
-def shuffle(offsets):
-    np.random.shuffle(offsets)
-
-def generate_samples(p, subdir, filename, width, height, channels, lab, flat, interleaves, shuffles, rows, cols, z_dim, with_space):
-    if isinstance(p, Model):
-        model = p
-    else:
-        print("Don't know how to handle unpickled %s" % type(p))
-        return
-
-    draw = model.get_top_bricks()[0]
-    # reset the random generator
-    try:
-        del draw._theano_rng
-        del draw._theano_seed
-    except AttributeError:
-        # Do nothing
-        pass
-    draw.seed_rng = np.random.RandomState(config.default_seed)
-
+def generate_samples(draw, subdir, filename, width, height, channels, lab, flat, interleaves, shuffles, rows, cols, z_dim, with_space):
     #------------------------------------------------------------
     logging.info("Compiling sample function...")
     n_samples = T.iscalar("n_samples")
     if flat:
-        offsets = []
-        for i in range(z_dim):
-            offsets.append(pol2cart(i * np.pi / z_dim))
-        offsets = np.array(offsets)
-
-        for i in range(interleaves):
-            offsets = interleave(offsets)
-
-        for i in range(shuffles):
-            shuffle(offsets)
-
-        #------------------------------------------------------------
-        # this does 3.3 deviations (99.9)
-        # range_high = 0.999
-        # range_low = 1 - range_high
-        range_high = 0.95
-        range_low = 1 - range_high
-        ul = []
-        for c in range(cols):
-            yf = (c - (cols / 2.0) + 0.5) / (cols / 2.0 + 0.5)
-            for r in range(rows):
-                xf = (r - (rows / 2.0) + 0.5) / (rows / 2.0 + 0.5)
-                coords = map(lambda o: np.dot([xf, yf], o), offsets)
-                ranged = map(lambda n:lerpTo(n, range_low, range_high), coords)
-                flatter = map(lambda n:lerpTo(n, -3, 3), coords)
-                cdfed = map(ndtri, ranged)
-                # u1 = (np.array(flatter) + np.array(cdfed)) / 2.0
-                u1 = np.array(cdfed)
-                ul.append(u1)
-        u = np.array(ul)
-        u_var = T.matrix("u_var")
-        samples_at = draw.sample_at(n_samples, u_var)
-        do_sample_at = theano.function([n_samples, u_var], outputs=samples_at, allow_input_downcast=True)
-        #------------------------------------------------------------
-        logging.info("Sampling and saving images...")
-        samples, newu = do_sample_at(rows*cols, u)
-        # print("NEWU: ", newu)
-        # print("NEWU.s: ", newu.shape)
-        # print("NEWU[0]: ", newu[0])
+        coords = modelutil.make_flat(z_dim, cols, rows, True, interleaves, shuffles)
+        print("SUCCESSFUL COORDS IS: {}".format(coords.shape))
+        samples = modelutil.sample_at(draw, coords)
+        print("SUCCESSFUL SHAPE IS: {}".format(samples.shape))
     else:
-        samples = draw.sample(n_samples)
-        do_sample = theano.function([n_samples], outputs=samples, allow_input_downcast=True)
-        #------------------------------------------------------------
-        logging.info("Sampling and saving images...")
-        samples = do_sample(rows*cols)
+        samples = modelutil.sample_random(draw, rows*cols)
+        print("SUCCESSFUL SHAPE IS: {}".format(samples.shape))
 
     n_iter, N, D = samples.shape
     # logging.info("SHAPE IS: {}".format(samples.shape))
@@ -210,14 +129,13 @@ if __name__ == "__main__":
     parser.add_argument('--lab', dest='lab', default=False,
                 help="Lab Colorspace", action='store_true')
     parser.add_argument('--subdir', dest='subdir', default="sample")
-    parser.add_argument('--filename', dest='filename', default="filename")
+    parser.add_argument('--filename', dest='filename', default="sample")
     args = parser.parse_args()
 
     logging.info("Loading file %s..." % args.model_file)
-    with open(args.model_file, "rb") as f:
-        p = pickle.load(f)
+    main_model = modelutil.load_file(args.model_file)
 
     if not os.path.exists(args.subdir):
         os.makedirs(args.subdir)
 
-    generate_samples(p, args.subdir, args.filename, args.width, args.height, args.channels, args.lab, args.flat, args.interleaves, args.shuffles,args.rows, args.cols, args.z_dim, not args.tight)
+    generate_samples(main_model, args.subdir, args.filename, args.width, args.height, args.channels, args.lab, args.flat, args.interleaves, args.shuffles,args.rows, args.cols, args.z_dim, not args.tight)
