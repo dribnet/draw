@@ -205,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument("--shuffles", type=int,
                 default=0, help="#shuffles if flat")
     parser.add_argument("--z_dim", type=int,
-                default=2, help="z_dim (if flat)")
+                default=100, help="z_dim (if flat)")
     parser.add_argument('--tight', dest='tight', default=False, action='store_true')
     parser.add_argument('--lab', dest='lab', default=False,
                 help="Lab Colorspace", action='store_true')
