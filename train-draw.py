@@ -54,7 +54,7 @@ sys.setrecursionlimit(100000)
 
 #----------------------------------------------------------------------------
 def main(name, dataset, channels, size, width, height, epochs, batch_size, learning_rate,
-         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel, lab, flat, live_plotting):
+         attention, n_iter, enc_dim, dec_dim, z_dim, oldmodel, lab, flat, kl_factor, live_plotting):
 
     image_size, channels, data_train, data_valid, data_test = datasets.get_data(dataset, channels, size, width, height)
 
@@ -135,6 +135,7 @@ def main(name, dataset, channels, size, width, height, epochs, batch_size, learn
     print("          n_iterations: %d" % n_iter)
     print("     encoder dimension: %d" % enc_dim)
     print("           z dimension: %d" % z_dim)
+    print("            KL scaling: %g" % kl_factor)
     print("     decoder dimension: %d" % dec_dim)
     print("            batch size: %d" % batch_size)
     print("                epochs: %d" % epochs)
@@ -169,7 +170,7 @@ def main(name, dataset, channels, size, width, height, epochs, batch_size, learn
 
     kl_terms_sum = kl_terms.sum(axis=0).mean()
     kl_terms_sum.name = "kl_terms_sum"
-    cost = recons_term + kl_terms_sum
+    cost = recons_term + kl_factor * kl_terms_sum
     cost.name = "nll_bound"
     cost_monitors = [cost, recons_term, kl_terms_sum]
 
@@ -285,6 +286,8 @@ if __name__ == "__main__":
                 default=100, help="Size of each mini-batch")
     parser.add_argument("--lr", "--learning-rate", type=float, dest="learning_rate",
                 default=1e-3, help="Learning rate")
+    parser.add_argument("--kl_factor", type=float, dest="kl_factor",
+                default=1.0, help="Scaling Factor for KL term")
     parser.add_argument("--attention", "-a", type=str, default="",
                 help="Use attention mechanism (read_window,write_window)")
     parser.add_argument("--niter", type=int, dest="n_iter",
