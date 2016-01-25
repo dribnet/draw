@@ -18,38 +18,20 @@ import time
 import cPickle as pickle
 
 from argparse import ArgumentParser
-from theano import tensor
 
 from fuel.streams import DataStream
 from fuel.schemes import SequentialScheme
 from fuel.transformers import Flatten
-
-from blocks.algorithms import GradientDescent, CompositeRule, StepClipping, RMSProp, Adam
-from blocks.bricks import Tanh, Identity
-from blocks.bricks.cost import BinaryCrossEntropy
-from blocks.bricks.recurrent import SimpleRecurrent, LSTM
-from blocks.initialization import Constant, IsotropicGaussian, Orthogonal
-from blocks.filter import VariableFilter
-from blocks.graph import ComputationGraph
-from blocks.roles import PARAMETER
-from blocks.monitoring import aggregation
-from blocks.extensions import FinishAfter, Timing, Printing, ProgressBar
-from blocks.extensions.saveload import Checkpoint
-from blocks.extensions.monitoring import DataStreamMonitoring, TrainingDataMonitoring
-from blocks.main_loop import MainLoop
-from blocks.model import Model
 
 import draw.datasets as datasets
 from draw.draw import *
 from draw.labcolor import scaled_lab2rgb
 
 from PIL import Image
-from blocks.main_loop import MainLoop
-from blocks.model import Model
-from blocks.config import config
-
 from scipy.misc import imread, imsave
 from scipy.misc import imresize 
+
+import modelutil
 
 FORMAT = '[%(asctime)s] %(name)-15s %(message)s'
 DATEFMT = "%H:%M:%S"
@@ -133,9 +115,7 @@ def printchar(i):
 
 # build up a set of reconstructed pairs (training or test)
 def build_reconstruct_pairs(data_stream, num, model, channels, image_size):
-    draw = model.get_top_bricks()[0]
-    x = tensor.matrix('features')
-    reconstruct_function = theano.function([x], draw.reconstruct(x))
+    f = modelutil.build_reconstruct_function(model)
     iterator = data_stream.get_epoch_iterator(as_dict=True)
     pairs = []
     target_shape = (channels, image_size[0], image_size[1])
@@ -153,7 +133,7 @@ def build_reconstruct_pairs(data_stream, num, model, channels, image_size):
     for i in range(num):
         next_im = datastream_images[i].reshape(input_shape)
         printchar(i)
-        recon_im, kterms = reconstruct_function(next_im)
+        recon_im, kterms = modelutil.reconstruct_image(f, next_im)
         pairs.append([next_im.reshape(target_shape),
                       recon_im.reshape(target_shape)])
 
@@ -166,9 +146,7 @@ def build_reconstruct_image(fname, model, channels, image_size):
     print("shape: {}".format(rawim.shape))
     im_height, im_width = rawim.shape
 
-    draw = model.get_top_bricks()[0]
-    x = tensor.matrix('features')
-    reconstruct_function = theano.function([x], draw.reconstruct(x))
+    f = modelutil.build_reconstruct_function(model)
 
     pairs = []
     target_shape = (channels, image_size[0], image_size[1])
@@ -191,7 +169,7 @@ def build_reconstruct_image(fname, model, channels, image_size):
     for i in range(steps_x*steps_y):
         next_im = datastream_images[i].reshape(input_shape)
         printchar(i)
-        recon_im, kterms = reconstruct_function(next_im)
+        recon_im, kterms = modelutil.reconstruct_image(f, next_im)
         pairs.append([next_im.reshape(target_shape),
                       recon_im.reshape(target_shape)])
 
@@ -206,9 +184,7 @@ def build_reconstruct_imagec(fname, model, channels, image_size):
     mixedim = np.asarray([rawim[:,:,0], rawim[:,:,1], rawim[:,:,2]])
     print("newshape: {}".format(mixedim.shape))
 
-    draw = model.get_top_bricks()[0]
-    x = tensor.matrix('features')
-    reconstruct_function = theano.function([x], draw.reconstruct(x))
+    f = modelutil.build_reconstruct_function(model)
 
     pairs = []
     target_shape = (channels, image_size[0], image_size[1])
@@ -231,37 +207,12 @@ def build_reconstruct_imagec(fname, model, channels, image_size):
     for i in range(steps_x*steps_y):
         next_im = datastream_images[i].reshape(input_shape)
         printchar(i)
-        recon_im, kterms = reconstruct_function(next_im)
+        recon_im, kterms = modelutil.reconstruct_image(f, next_im)
         pairs.append([next_im.reshape(target_shape),
                       recon_im.reshape(target_shape)])
 
     print("")
     return steps_y, steps_x, pairs
-
-
-# generate entire dash and save
-def generate_dash(model, subdir, image_size, channels, lab):
-    logging.info("Generating pairs (test)")
-    # test_pairs = build_reconstruct_pairs(test_stream, cols, model, channels, image_size)
-    # test_pairs = build_reconstruct_image("input/joy_meat_660_820_gray.png", cols, model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_image("input/joy_meat_672x816_gray.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_image("input/hugeblack.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_image("input/hugeblack2_1800.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_image("input/face2.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_imagec("input/joy_meat_704x832.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_imagec("input/colors.jpg", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_imagec("input/color_chunk.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_imagec("input/bigblack_rgb.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_imagec("input/bigwhite_rgb.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_imagec("input/hugeblack2_rgb.png", model, channels, image_size)
-    # rows, cols, test_pairs = build_reconstruct_imagec("input/bigblack10_rgb.png", model, channels, image_size)
-    rows, cols, test_pairs = build_reconstruct_imagec("input/face3.png", model, channels, image_size)
-    # cols = len(test_pairs)
-    logging.info("Rendering grid")
-    imgrid = render_grid(rows*cols, image_size[0], image_size[1], channels, test_pairs, lab)
-    imgrid.save("{0}/series.png".format(subdir))
-    imgrid = render_all(rows, cols, image_size[0], image_size[1], channels, test_pairs, lab)
-    imgrid.save("{0}/complete.png".format(subdir))
 
 def generate_tiles(model, subdir, image_size, channels, tilefile):
     lab = False
@@ -290,14 +241,7 @@ def unpack_and_run(subdir, args):
     lab = args.lab
 
     logging.info("Loading file %s..." % args.model_file)
-    with open(args.model_file, "rb") as f:
-        p = pickle.load(f)
-
-    if isinstance(p, Model):
-        model = p
-    else:
-        print("Don't know how to handle unpickled %s" % type(p))
-        return
+    model = modelutil.load_file(args.model_file)
 
     image_size = (args.width, args.height)
     channels = args.channels

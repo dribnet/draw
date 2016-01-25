@@ -135,3 +135,12 @@ def sample_at_new(model, locations):
     logging.info("Sampling and saving images...")
     samples = do_sample_at(rows*cols, flat_locations)
     return samples
+
+def build_reconstruct_function(model):
+    x = T.matrix('features')
+    reconstruct_function = theano.function([x], model.reconstruct(x))
+    return reconstruct_function
+
+def reconstruct_image(reconstruct_function, source_im):
+    recon_im, kterms = reconstruct_function(source_im)
+    return recon_im, kterms

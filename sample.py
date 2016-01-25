@@ -11,9 +11,6 @@ import numpy as np
 import os
 
 from PIL import Image
-from blocks.main_loop import MainLoop
-from blocks.model import Model
-from blocks.config import config
 
 from draw.labcolor import scaled_lab2rgb
 import modelutil
@@ -76,7 +73,6 @@ def img_grid(arr, rows, cols, lab, with_space, global_scale=False):
 def generate_samples(draw, subdir, filename, width, height, channels, lab, flat, interleaves, shuffles, rows, cols, z_dim, with_space):
     #------------------------------------------------------------
     logging.info("Compiling sample function...")
-    n_samples = T.iscalar("n_samples")
     if flat:
         coords = modelutil.make_flat(z_dim, cols, rows, True, interleaves, shuffles)
         print("SUCCESSFUL COORDS IS: {}".format(coords.shape))
