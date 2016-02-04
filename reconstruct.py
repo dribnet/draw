@@ -214,7 +214,7 @@ def build_reconstruct_imagec(fname, model, channels, image_size):
     print("")
     return steps_y, steps_x, pairs
 
-def generate_tiles(model, subdir, image_size, channels, tilefile):
+def generate_tiles(model, subdir, image_size, channels, tilefile, filename):
     lab = False
     logging.info("Generating tiles from {}".format(tilefile))
     if(channels == 1):
@@ -223,10 +223,10 @@ def generate_tiles(model, subdir, image_size, channels, tilefile):
         rows, cols, test_pairs = build_reconstruct_imagec(tilefile, model, channels, image_size)
     logging.info("Rendering pairs")
     imgrid = render_grid(rows*cols, image_size[0], image_size[1], channels, test_pairs, lab)
-    imgrid.save("{0}/tile_pairs.png".format(subdir))
+    imgrid.save("{0}/{1}_pairs.png".format(subdir, filename))
     logging.info("Rendering grid")
     imgrid = render_all(rows, cols, image_size[0], image_size[1], channels, test_pairs, lab)
-    imgrid.save("{0}/tile_grid.png".format(subdir))
+    imgrid.save("{0}/{1}_grid.png".format(subdir, filename))
 
 def generate_stream(model, subdir, image_size, channels, input_stream, num, prefix):
     lab = False
@@ -258,7 +258,7 @@ def unpack_and_run(subdir, args):
             generate_stream(model, subdir, image_size, channels, test_stream, args.numpairs, "test")
 
     if(args.tilefile):
-        generate_tiles(model, subdir, image_size, channels, args.tilefile)
+        generate_tiles(model, subdir, image_size, channels, args.tilefile, args.filename)
 
 # main - setup args, make output directory, and the run
 if __name__ == "__main__":
@@ -288,6 +288,7 @@ if __name__ == "__main__":
                 default=None, help="Input file for tiling reconstruction")
     parser.add_argument("--subdir", type=str, dest="subdir",
                 default="reconstruct", help="subdirectory output")
+    parser.add_argument('--filename', dest='filename', default="tile_grid")
 
     args = parser.parse_args()
 
