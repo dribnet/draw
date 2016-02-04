@@ -114,13 +114,25 @@ def sample_at(model, locations):
     samples, newu = do_sample_at(rows*cols, flat_locations)
     return samples
 
-def sample_random(model, numsamples):
+def sample_random_native(model, numsamples):
     n_samples = T.iscalar("n_samples")
     sample = model.sample(n_samples)
     do_sample = theano.function([n_samples], outputs=sample, allow_input_downcast=True)
     #------------------------------------------------------------
     logging.info("Sampling and saving images...")
     samples = do_sample(numsamples)
+    return samples
+
+def sample_random(model, numsamples):
+    u_var = T.tensor3("u_var")
+    sample = model.sample_given(u_var)
+    do_sample = theano.function([u_var], outputs=sample, allow_input_downcast=True)
+    #------------------------------------------------------------
+    logging.info("Sampling images...")
+    iters, dim = model.get_iters_and_dim()
+    u = np.random.normal(0, 1, (iters, numsamples, dim))
+    # print("Shape: {}".format(u.shape))
+    samples = do_sample(u)
     return samples
 
 def sample_at_new(model, locations):

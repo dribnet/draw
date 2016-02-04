@@ -369,6 +369,25 @@ class DrawModel(BaseRecurrent, Initializable, Random):
         #c, _, _, center_y, center_x, delta = self.decode(u)
         return T.nnet.sigmoid(c)
 
+    @application(inputs=[], outputs=['iters', 'dim'])
+    def get_iters_and_dim(self):
+        """
+        """
+        u_dim = self.sampler.mean_transform.get_dim('output')
+        return self.n_iter, u_dim
+
+    @application(inputs=['u'], outputs=['samples'])
+    def sample_given(self, u):
+        """Sample from model at given vector.
+
+        Returns
+        -------
+
+        samples : tensor3 (n_samples, n_iter, x_dim)
+        """
+        c, _, _, = self.decode(u)
+        return T.nnet.sigmoid(c)
+
     @application(inputs=['n_samples'], outputs=['samples', 'newu'])
     def sample_at(self, n_samples, u1):
         """Sample from model.
