@@ -41,7 +41,7 @@ class SampleCheckpoint(Checkpoint):
         if self.samples_every != 0 and self.iteration % self.samples_every == 0:
             # epoch_filename = "epoch-{1:04d}.png".format(self.iteration)
             model = self.main_loop.model.get_top_bricks()[0]
-            generate_samples(model, self.save_subdir, "sample", self.image_size[0], self.image_size[1], self.channels, self.lab, self.flat, 0, 0, self.dash_rows, self.dash_cols, self.z_dim, True)
+            generate_samples(model, self.save_subdir, "sample", self.image_size[0], self.image_size[1], self.channels, self.lab, self.flat, False, 0, 0, self.dash_rows, self.dash_cols, self.z_dim, True)
             if os.path.exists(self.epoch_src):
                 epoch_dst = "{0}/epoch-{1:04d}.png".format(self.save_subdir, self.iteration)
                 shutil.copy2(self.epoch_src, epoch_dst)

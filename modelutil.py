@@ -131,8 +131,36 @@ def sample_random(model, numsamples):
     logging.info("Sampling images...")
     iters, dim = model.get_iters_and_dim()
     u = np.random.normal(0, 1, (iters, numsamples, dim))
-    # print("Shape: {}".format(u.shape))
     samples = do_sample(u)
+    print("Shape: {}".format(samples.shape))
+    return samples
+
+def sample_gradient(model, rows, cols):
+    u_var = T.tensor3("u_var")
+    sample = model.sample_given(u_var)
+    do_sample = theano.function([u_var], outputs=sample, allow_input_downcast=True)
+    #------------------------------------------------------------
+    logging.info("Sampling gradient...")
+    iters, dim = model.get_iters_and_dim()
+
+    numsamples = rows * cols
+    u_list = np.zeros((iters, numsamples, dim))
+    rowmin_colmin = np.random.normal(0, 1, (iters, 1, dim))
+    rowmin_colmax = np.random.normal(0, 1, (iters, 1, dim))
+    rowmax_colmin = np.random.normal(0, 1, (iters, 1, dim))
+    rowmax_colmax = np.random.normal(0, 1, (iters, 1, dim))
+
+    for y in range(rows):
+        rowmin_colcur = ((1.0 * y * rowmin_colmin) + ((rows - y - 1.0) * rowmin_colmax)) / (rows - 1.0)
+        rowmax_colcur = ((1.0 * y * rowmax_colmin) + ((rows - y - 1.0) * rowmax_colmax)) / (rows - 1.0)
+        for x in range(cols):
+            rowcur_colcur = ((1.0 * x * rowmin_colcur) + ((cols - x - 1.0) * rowmax_colcur)) / (cols - 1.0)
+            n = y * cols + x
+            # curu = rowmin
+            u_list[:,n:n+1,:] = rowcur_colcur
+
+    samples = do_sample(u_list)
+    print("Shape: {}".format(samples.shape))
     return samples
 
 def sample_at_new(model, locations):

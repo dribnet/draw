@@ -70,7 +70,7 @@ def img_grid(arr, rows, cols, lab, with_space, global_scale=False):
     return Image.fromarray(out)
 
 
-def generate_samples(draw, subdir, filename, width, height, channels, lab, flat, interleaves, shuffles, rows, cols, z_dim, with_space):
+def generate_samples(draw, subdir, filename, width, height, channels, lab, flat, gradient, interleaves, shuffles, rows, cols, z_dim, with_space):
     #------------------------------------------------------------
     logging.info("Compiling sample function...")
     if flat:
@@ -78,6 +78,9 @@ def generate_samples(draw, subdir, filename, width, height, channels, lab, flat,
         print("SUCCESSFUL COORDS IS: {}".format(coords.shape))
         samples = modelutil.sample_at(draw, coords)
         print("SUCCESSFUL SHAPE IS: {}".format(samples.shape))
+    elif gradient:
+        samples = modelutil.sample_gradient(draw, rows, cols)
+        print("SUCCESSFUL SHAPE IS: {}".format(samples.shape))        
     else:
         samples = modelutil.sample_random(draw, rows*cols)
         print("SUCCESSFUL SHAPE IS: {}".format(samples.shape))
@@ -115,6 +118,7 @@ if __name__ == "__main__":
     parser.add_argument("--rows", type=int,
                 default=8, help="grid rows")
     parser.add_argument('--flat', dest='flat', default=False, action='store_true')
+    parser.add_argument('--gradient', dest='gradient', default=False, action='store_true')
     parser.add_argument("--interleaves", type=int,
                 default=0, help="#interleaves if flat")
     parser.add_argument("--shuffles", type=int,
@@ -126,12 +130,17 @@ if __name__ == "__main__":
                 help="Lab Colorspace", action='store_true')
     parser.add_argument('--subdir', dest='subdir', default="sample")
     parser.add_argument('--filename', dest='filename', default="sample")
+    parser.add_argument("--seed", type=int,
+                default=None, help="Optional random seed")
     args = parser.parse_args()
 
     logging.info("Loading file %s..." % args.model_file)
     main_model = modelutil.load_file(args.model_file)
 
+    if args.seed:
+        np.random.seed(args.seed)
+
     if not os.path.exists(args.subdir):
         os.makedirs(args.subdir)
 
-    generate_samples(main_model, args.subdir, args.filename, args.width, args.height, args.channels, args.lab, args.flat, args.interleaves, args.shuffles,args.rows, args.cols, args.z_dim, not args.tight)
+    generate_samples(main_model, args.subdir, args.filename, args.width, args.height, args.channels, args.lab, args.flat, args.gradient, args.interleaves, args.shuffles,args.rows, args.cols, args.z_dim, not args.tight)
