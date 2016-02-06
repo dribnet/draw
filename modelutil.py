@@ -40,7 +40,7 @@ def load_file(filename):
     return main_model
 
 ### 
-def make_flat(z_dim, cols, rows, gaussian_prior="True", interleaves=[], shuffles=[]):
+def make_flat(z_dim, cols, rows, gaussian_prior=True, interleaves=[], shuffles=[]):
     sqrt2 = 1.0
     def lerpTo(val, low, high):
         zeroToOne = np.clip((val + sqrt2) / (2 * sqrt2), 0, 1)
@@ -82,14 +82,16 @@ def make_flat(z_dim, cols, rows, gaussian_prior="True", interleaves=[], shuffles
         shuffle(offsets)
 
     ul = []
-    range_high = 0.95
+    # range_high = 0.95
+    # range_low = 1 - range_high
+    range_high = 0.997  # 3 standard deviations
     range_low = 1 - range_high
-    for c in range(cols):
-        # yf = lerp(c / (cols-1.0), -1.0, 1.0)
-        yf = (c - (cols / 2.0) + 0.5) / (cols / 2.0 + 0.5)
-        for r in range(rows):
-            # xf = lerp(r / (rows-1.0), -1.0, 1.0)
-            xf = (r - (rows / 2.0) + 0.5) / (rows / 2.0 + 0.5)
+    for r in range(rows):
+        # xf = lerp(r / (rows-1.0), -1.0, 1.0)
+        xf = (r - (rows / 2.0) + 0.5) / ((rows-1) / 2.0 + 0.5)
+        for c in range(cols):
+            # yf = lerp(c / (cols-1.0), -1.0, 1.0)
+            yf = (c - (cols / 2.0) + 0.5) / ((cols-1) / 2.0 + 0.5)
             coords = map(lambda o: np.dot([xf, yf], o), offsets)
             ranged = map(lambda n:lerpTo(n, range_low, range_high), coords)
             # ranged = map(lambda n:lerpTo(n, range_low, range_high), [xf, yf])
@@ -102,16 +104,27 @@ def make_flat(z_dim, cols, rows, gaussian_prior="True", interleaves=[], shuffles
     return u
 
 def sample_at(model, locations):
-    rows, cols, z_dim = locations.shape
-    flat_locations = locations.reshape(rows*cols, z_dim)
-
-    n_samples = T.iscalar("n_samples")
-    u_var = T.matrix("u_var")
-    samples_at = model.sample_at(n_samples, u_var)
-    do_sample_at = theano.function([n_samples, u_var], outputs=samples_at, allow_input_downcast=True)
+    u_var = T.tensor3("u_var")
+    sample = model.sample_given(u_var)
+    do_sample = theano.function([u_var], outputs=sample, allow_input_downcast=True)
     #------------------------------------------------------------
-    logging.info("Sampling and saving images...")
-    samples, newu = do_sample_at(rows*cols, flat_locations)
+    iters, dim = model.get_iters_and_dim()
+    rows, cols, z_dim = locations.shape
+    logging.info("Sampling {}x{} locations with {} iters and {}={} dim...".format(rows,cols,iters,dim,z_dim))
+    numsamples = rows * cols
+    u_list = np.zeros((iters, numsamples, dim))
+
+    for y in range(rows):
+        for x in range(cols):
+            # xcur_ycur = np.random.normal(0, 1.0, (iters, 1, dim))
+            xcur_ycur = np.zeros((iters, 1, dim))
+            xcur_ycur[0,0,:] = locations[y][x].reshape(dim)
+            n = y * cols + x
+            # curu = rowmin
+            u_list[:,n:n+1,:] = xcur_ycur
+
+    samples = do_sample(u_list)
+    print("Shape: {}".format(samples.shape))
     return samples
 
 def sample_random_native(model, numsamples):
@@ -145,19 +158,26 @@ def sample_gradient(model, rows, cols):
 
     numsamples = rows * cols
     u_list = np.zeros((iters, numsamples, dim))
-    rowmin_colmin = np.random.normal(0, 1, (iters, 1, dim))
-    rowmin_colmax = np.random.normal(0, 1, (iters, 1, dim))
-    rowmax_colmin = np.random.normal(0, 1, (iters, 1, dim))
-    rowmax_colmax = np.random.normal(0, 1, (iters, 1, dim))
+    xmin_ymin = np.random.normal(0, 1, (iters, 1, dim))
+    xmax_ymin = np.random.normal(0, 1, (iters, 1, dim))
+    xmin_ymax = np.random.normal(0, 1, (iters, 1, dim))
+    # A xmax_ymax = np.random.normal(0, 1, (iters, 1, dim))
+    # B xmax_ymax = xmin_ymax + (xmax_ymin - xmin_ymin)
+    xmax_ymax = xmin_ymax + (xmax_ymin - xmin_ymin)
+    # C xmax_ymax = xmin_ymin
+    # C xmin_ymax = xmax_ymin
 
     for y in range(rows):
-        rowmin_colcur = ((1.0 * y * rowmin_colmin) + ((rows - y - 1.0) * rowmin_colmax)) / (rows - 1.0)
-        rowmax_colcur = ((1.0 * y * rowmax_colmin) + ((rows - y - 1.0) * rowmax_colmax)) / (rows - 1.0)
+        # xcur_ymin = ((1.0 * y * xmin_ymin) + ((rows - y - 1.0) * xmax_ymin)) / (rows - 1.0)
+        # xcur_ymax = ((1.0 * y * xmin_ymax) + ((rows - y - 1.0) * xmax_ymax)) / (rows - 1.0)
+        xmin_ycur = (((rows - y - 1.0) * xmin_ymin) + (1.0 * y * xmin_ymax)) / (rows - 1.0)
+        xmax_ycur = (((rows - y - 1.0) * xmax_ymin) + (1.0 * y * xmax_ymax)) / (rows - 1.0)
         for x in range(cols):
-            rowcur_colcur = ((1.0 * x * rowmin_colcur) + ((cols - x - 1.0) * rowmax_colcur)) / (cols - 1.0)
+            # xcur_ycur = ((1.0 * x * xcur_ymin) + ((cols - x - 1.0) * xcur_ymax)) / (cols - 1.0)
+            xcur_ycur = (((cols - x - 1.0) * xmin_ycur) + (1.0 * x * xmax_ycur)) / (cols - 1.0)
             n = y * cols + x
             # curu = rowmin
-            u_list[:,n:n+1,:] = rowcur_colcur
+            u_list[:,n:n+1,:] = xcur_ycur
 
     samples = do_sample(u_list)
     print("Shape: {}".format(samples.shape))
