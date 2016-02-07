@@ -149,6 +149,7 @@ def build_reconstruct_pairs(data_stream, num, model, channels, image_size):
     for i in range(num):
         next_im = datastream_images[i].reshape(input_shape)
         recon_im, kterms = reconstruct_function(next_im)
+        # print("Reconstruct: {} = {}".format(i, kterms))
         pairs.append([next_im.reshape(target_shape),
                       recon_im.reshape(target_shape)])
 
@@ -204,7 +205,8 @@ def gen_match_pairs(data_stream, image_size, channels, targets):
         best_score2 = 1e100
         best_im = None
         best_im2 = None
-        for tr_im in all_datastream_images:
+        best_index = best_index2 = 0
+        for cur_index, tr_im in enumerate(all_datastream_images):
             im2 =  tr_im.reshape(target_shape)
             score = get_image_diff(im1, im2)
             if(score < best_score):
@@ -212,11 +214,14 @@ def gen_match_pairs(data_stream, image_size, channels, targets):
                 best_score = score
                 best_im2 = best_im
                 best_im = im2
+                best_index2 = best_index
+                best_index = cur_index
             elif(score < best_score2):
                 best_score2 = score
                 best_im2 = im2
+                best_index2 = cur_index
         # print("Format from {} to {}", tr_im.shape, im2.shape)
-        print("Neighbor processed, score {}".format(best_score))
+        print("Neighbor processed, best {},{}, score {}".format(best_index, best_index2, best_score))
         matches.append([best_im2, best_im])
 
     return matches
@@ -226,7 +231,6 @@ def attach_recon_to_neighbors(model, images_left, images_right, channels, image_
     logging.info("Compiling reconstruction function...")
     draw = model.get_top_bricks()[0]
     x = tensor.matrix('features')
-    x_recons, kl_terms = draw.reconstruct(x)
     reconstruct_function = theano.function([x], draw.reconstruct(x))
 
     input_shape = (1, channels * image_size[0] * image_size[1])
