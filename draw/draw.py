@@ -19,6 +19,28 @@ from prob_layers import replicate_batch
 
 #-----------------------------------------------------------------------------
 
+#-----------------------------------------------------------------------------
+def u_transform(u):
+    # U is shape: (self.n_iter, n_samples, z_dim)
+##    u = theano.printing.Print('input u is ')(u)
+    u_shape = u.shape
+    n_iter = u_shape[0]
+    n_samples = u_shape[1]
+    z_dim = u_shape[2]
+##    n_iter = theano.printing.Print('n_iter u shape is ')(n_iter)
+##    n_samples = theano.printing.Print('n_samples u shape is ')(n_samples)
+    # z_dim = theano.printing.Print('n_samples u shape is ')(z_dim)
+    u1 = u[0]
+    u2 = T.tile(u1, (n_iter, 1)).reshape((n_iter, n_samples, z_dim))
+    # u2[0,:,0] = T.fill((1,n_samples,1), 0)
+    # u2[0,:,0] = T.fill((1,n_samples,1), 1)
+
+##    u2 = theano.printing.Print('output u is ')(u2)
+
+    return u2
+
+#-----------------------------------------------------------------------------
+
 class Qsampler(Initializable, Random):
     def __init__(self, input_dim, output_dim, **kwargs):
         super(Qsampler, self).__init__(**kwargs)
@@ -49,7 +71,7 @@ class Qsampler(Initializable, Random):
             raise ValueError
 
     @application(inputs=['x', 'u'], outputs=['z', 'kl_term'])
-    def sample(self, x, u):
+    def sample_x(self, x, u):
         """Return a samples and the corresponding KL term
 
         Parameters
@@ -88,7 +110,7 @@ class Qsampler(Initializable, Random):
 
     #@application(inputs=['n_samples'])
     @application(inputs=['u'], outputs=['z_prior'])
-    def sample_from_prior(self, u):
+    def sample_from_prior_x(self, u):
         """Sample z from the prior distribution P_z.
 
         Parameters
@@ -306,7 +328,7 @@ class DrawModel(BaseRecurrent, Initializable, Random):
         r = self.reader.apply(x, x_hat, h_dec)
         i_enc = self.encoder_mlp.apply(T.concatenate([r, h_dec], axis=1))
         h_enc, c_enc = self.encoder_rnn.apply(states=h_enc, cells=c_enc, inputs=i_enc, iterate=False)
-        z, kl = self.sampler.sample(h_enc, u)
+        z, kl = self.sampler.sample_x(h_enc, u)
 
         i_dec = self.decoder_mlp.apply(z)
         h_dec, c_dec = self.decoder_rnn.apply(states=h_dec, cells=c_dec, inputs=i_dec, iterate=False)
@@ -316,10 +338,10 @@ class DrawModel(BaseRecurrent, Initializable, Random):
     @recurrent(sequences=['u'], contexts=[], 
                states=['c', 'h_dec', 'c_dec'],
                outputs=['c', 'h_dec', 'c_dec'])
-    def decode(self, u, c, h_dec, c_dec):
+    def decode_x(self, u, c, h_dec, c_dec):
         batch_size = c.shape[0]
 
-        z = self.sampler.sample_from_prior(u)
+        z = self.sampler.sample_from_prior_x(u)
         i_dec = self.decoder_mlp.apply(z)
         h_dec, c_dec = self.decoder_rnn.apply(
                     states=h_dec, cells=c_dec, 
@@ -339,8 +361,10 @@ class DrawModel(BaseRecurrent, Initializable, Random):
                     size=(self.n_iter, batch_size, dim_z),
                     avg=0., std=1.)
 
+        uflat = u_transform(u)
+
         c, h_enc, c_enc, z, kl, h_dec, c_dec = \
-            rvals = self.apply(x=features, u=u)
+            rvals = self.apply(x=features, u=uflat)
 
         x_recons = T.nnet.sigmoid(c[-1,:,:])
         x_recons.name = "reconstruction"
@@ -365,7 +389,9 @@ class DrawModel(BaseRecurrent, Initializable, Random):
                     size=(self.n_iter, n_samples, u_dim),
                     avg=0., std=1.)
 
-        c, _, _, = self.decode(u)
+        uflat = u_transform(u)
+
+        c, _, _, = self.decode_x(uflat)
         #c, _, _, center_y, center_x, delta = self.decode(u)
         return T.nnet.sigmoid(c)
 
@@ -385,7 +411,9 @@ class DrawModel(BaseRecurrent, Initializable, Random):
 
         samples : tensor3 (n_samples, n_iter, x_dim)
         """
-        c, _, _, = self.decode(u)
+        # uflat = u
+        uflat = u_transform(u)
+        c, _, _, = self.decode_x(uflat)
         return T.nnet.sigmoid(c)
 
     @application(inputs=['n_samples'], outputs=['samples', 'newu'])

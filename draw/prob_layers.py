@@ -177,7 +177,7 @@ class GaussianTopLayer(Initializable, ProbabilisticTopLayer):
         return mean, log_sigma
 
     @application(outputs=['X', 'log_prob'])
-    def sample(self, n_samples):
+    def sample_x(self, n_samples):
         mean, log_sigma = self.sample_expected(n_samples)
 
         # Sample from mean-zeros std.-one Gaussian
@@ -254,7 +254,7 @@ class GaussianLayer(Initializable, ProbabilisticLayer):
         return mean, log_sigma
 
     @application(inputs=['Y'], outputs=['X', 'log_prob'])
-    def sample(self, Y):
+    def sample_x(self, Y):
         mean, log_sigma = self.sample_expected(Y)
 
         # Sample from mean-zeros std.-one Gaussian
